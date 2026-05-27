@@ -127,19 +127,27 @@ impl RamLogRing {
     pub fn drain_for_checkpoint(&self, max: usize) -> Vec<DnsLogRecord> {
         let mut ring = self.records.write().unwrap();
         let n = ring.len().min(max);
-        let drained: Vec<DnsLogRecord> = ring.drain(..n).collect();
-        self.total_checkpointed
-            .fetch_add(drained.len() as u64, Ordering::Relaxed);
-        drained
+        ring.drain(..n).collect()
+    }
+
+    /// Put records back at the front after a failed checkpoint (oldest-first order).
+    pub fn restore_front(&self, records: Vec<DnsLogRecord>) {
+        if records.is_empty() {
+            return;
+        }
+        let mut ring = self.records.write().unwrap();
+        for record in records.into_iter().rev() {
+            ring.push_front(record);
+            if ring.len() > self.capacity {
+                ring.pop_back();
+            }
+        }
     }
 
     /// Drain ALL records (emergency flush on shutdown).
     pub fn drain_all(&self) -> Vec<DnsLogRecord> {
         let mut ring = self.records.write().unwrap();
-        let drained: Vec<DnsLogRecord> = ring.drain(..).collect();
-        self.total_checkpointed
-            .fetch_add(drained.len() as u64, Ordering::Relaxed);
-        drained
+        ring.drain(..).collect()
     }
 
     /// Read-only snapshot for queries. No disk I/O.
@@ -225,21 +233,31 @@ fn do_checkpoint(ring: &RamLogRing, store: &Arc<dyn LogStore>, max_batch: usize,
                 libc::syscall(libc::SYS_ioprio_set, 1i32, 0i32, (3i32 << 13) | 7i32);
             }
 
-            if let Err(e) = store_clone.append_dns_logs(&batch) {
-                error!(error = %e, count, "checkpoint flush to DuckDB failed");
-            }
+            store_clone.append_dns_logs(&batch).map_err(|e| (e, batch))
         });
 
     match handle {
-        Ok(h) => {
-            if let Err(e) = h.join() {
-                error!("checkpoint thread panicked: {:?}", e);
-            } else {
+        Ok(h) => match h.join() {
+            Ok(Ok(())) => {
+                ring.total_checkpointed
+                    .fetch_add(count as u64, Ordering::Relaxed);
                 info!(count, reason, "checkpoint: flushed to DuckDB");
             }
-        }
+            Ok(Err((e, batch))) => {
+                error!(error = %e, count, "checkpoint flush to DuckDB failed — restoring RAM buffer");
+                ring.restore_front(batch);
+            }
+            Err(e) => {
+                error!("checkpoint thread panicked: {:?}", e);
+                // Cannot recover batch after panic; already drained from RAM
+            }
+        },
         Err(e) => {
-            error!(error = %e, "failed to spawn checkpoint thread");
+            error!(
+                error = %e,
+                count,
+                "failed to spawn checkpoint thread — records removed from RAM"
+            );
         }
     }
 }
@@ -252,10 +270,16 @@ fn do_emergency_flush(ring: &RamLogRing, store: &Arc<dyn LogStore>) {
     }
     let count = batch.len();
     info!(count, "emergency flush: writing all RAM logs to DuckDB");
-    if let Err(e) = store.append_dns_logs(&batch) {
-        error!(error = %e, count, "EMERGENCY FLUSH FAILED — data lost");
-    } else {
-        info!(count, "emergency flush: complete, no data lost");
+    match store.append_dns_logs(&batch) {
+        Ok(()) => {
+            ring.total_checkpointed
+                .fetch_add(count as u64, Ordering::Relaxed);
+            info!(count, "emergency flush: complete, no data lost");
+        }
+        Err(e) => {
+            error!(error = %e, count, "EMERGENCY FLUSH FAILED — restoring RAM buffer");
+            ring.restore_front(batch);
+        }
     }
 }
 
@@ -1196,7 +1220,11 @@ mod tests {
         let drained = ring.drain_for_checkpoint(5);
         assert_eq!(drained.len(), 5);
         assert_eq!(ring.len(), 5);
-        assert_eq!(ring.total_checkpointed(), 5);
+        assert_eq!(ring.total_checkpointed(), 0);
+
+        ring.restore_front(drained);
+        assert_eq!(ring.len(), 10);
+        assert_eq!(ring.snapshot()[0].client_id, "c-0");
     }
 
     #[test]

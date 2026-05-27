@@ -367,7 +367,8 @@ async fn main() -> anyhow::Result<()> {
         if !has_lists {
             let gstate = state.clone();
             tokio::spawn(async move {
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                // Let DNS/API come up before downloading large blocklists (avoids OOM on 1–2GB Pi).
+                tokio::time::sleep(Duration::from_secs(45)).await;
                 tracing::info!("first-boot gravity: pulling blocklists now");
                 if let Err(e) = run_gravity_update(&gstate).await {
                     tracing::error!(error = %e, "first-boot gravity pull failed");

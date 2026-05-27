@@ -445,6 +445,10 @@ done
 if [ "$HEALTHY" = true ]; then
     remove_safety_net
     log "Sentinel DNS is healthy and serving on port 53."
+elif curl -fsS "http://127.0.0.1:8080/healthz" >/dev/null 2>&1; then
+    remove_safety_net
+    warn "Port 53 probe inconclusive, but API health check passed."
+    log "Sentinel control-plane is responding."
 else
     warn "Sentinel has not bound port 53 yet. Safety net cron will auto-heal if needed."
     warn "Check logs: docker compose -f $COMPOSE_FILE_PATH logs -f"

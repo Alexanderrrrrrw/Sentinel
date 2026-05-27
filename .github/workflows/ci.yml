@@ -30,8 +30,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -40,10 +38,10 @@ jobs:
       - name: Verify dependency policy
         run: node scripts/verify-js-dependencies.mjs
       - name: Install
-        run: corepack pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Lint
-        run: corepack pnpm --filter sentinel-dashboard lint
+        run: pnpm --filter sentinel-dashboard lint
       - name: Test
-        run: corepack pnpm --filter sentinel-dashboard test
+        run: pnpm --filter sentinel-dashboard test
       - name: Build
-        run: corepack pnpm --filter sentinel-dashboard build
+        run: pnpm --filter sentinel-dashboard build

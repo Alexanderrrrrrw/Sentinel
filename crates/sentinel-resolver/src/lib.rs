@@ -2,6 +2,7 @@ pub mod mdns;
 
 use std::collections::HashSet;
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -255,6 +256,24 @@ impl SentinelResolver {
 
 pub type LogSender = tokio::sync::mpsc::Sender<DnsLogRecord>;
 
+static DROPPED_LOG_RECORDS: AtomicU64 = AtomicU64::new(0);
+
+fn emit_log_record(tx: &LogSender, record: DnsLogRecord) {
+    match tx.try_send(record) {
+        Ok(()) => {}
+        Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+            let total = DROPPED_LOG_RECORDS.fetch_add(1, Ordering::Relaxed) + 1;
+            if total == 1 || total % 1000 == 0 {
+                warn!(
+                    dropped_total = total,
+                    "DNS log channel full, dropping log records"
+                );
+            }
+        }
+        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+    }
+}
+
 pub async fn run_dns_listener(
     bind_addr: SocketAddr,
     resolver: Arc<SentinelResolver>,
@@ -399,7 +418,7 @@ async fn process_dns_query(
     if let Some(tx) = log_tx {
         let log_record =
             SentinelResolver::into_log_record(&src.ip().to_string(), &domain, protocol, &result);
-        let _ = tx.try_send(log_record);
+        emit_log_record(tx, log_record);
     }
 
     let response = match result.action {

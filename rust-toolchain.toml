@@ -1,3 +1,4 @@
 [toolchain]
-channel = "stable"
+# comfy-table (via duckdb/arrow) needs let-chains (Rust 1.88+)
+channel = "1.88"
 profile = "default"
