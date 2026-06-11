@@ -207,6 +207,7 @@ if [ "$BUILD_FROM_SOURCE" = true ]; then
         cd "$INSTALL_DIR"
         git pull --ff-only || warn "Could not auto-update. Continuing with existing code."
     else
+        cd /tmp
         rm -rf "$INSTALL_DIR"
         git clone "https://github.com/${REPO}.git" "$INSTALL_DIR"
     fi
