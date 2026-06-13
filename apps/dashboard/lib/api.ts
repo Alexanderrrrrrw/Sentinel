@@ -149,24 +149,6 @@ export async function fetchDevices(): Promise<DevicePolicy[]> {
   return (await res.json()) as DevicePolicy[];
 }
 
-// ─── Resolve ───
-
-export async function resolveSampleDomain(
-  domain: string
-): Promise<ResolveResponse> {
-  const res = await fetch(`${getBaseUrl()}/api/resolve`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: "dashboard-preview",
-      query_domain: domain,
-      protocol: "udp",
-    }),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`Failed to resolve domain: ${res.status}`);
-  return (await res.json()) as ResolveResponse;
-}
 
 // ─── Logs ───
 

@@ -38,13 +38,16 @@ async function proxyRequest(
     }
 
     const res = await fetch(url, fetchOpts);
-    const body = await res.text();
 
-    return new NextResponse(body, {
+    // Stream the response body directly to support SSE
+    const responseHeaders = new Headers();
+    res.headers.forEach((value, key) => {
+      responseHeaders.set(key, value);
+    });
+
+    return new NextResponse(res.body, {
       status: res.status,
-      headers: {
-        "content-type": res.headers.get("content-type") ?? "application/json",
-      },
+      headers: responseHeaders,
     });
   } catch (e) {
     return NextResponse.json(

@@ -5,47 +5,45 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Sentinel Dark theme
+        // Sentinel Dark theme - Deep Space
         "sentinel-dark": {
-          bg: "#0a0f1a",
-          surface: "#101827",
-          primary: "#00f3ff",
-          success: "#52ffa8",
-          muted: "#7a8aa0",
-          warning: "#ff8f6b",
+          bg: "#030712",
+          surface: "#111827",
+          primary: "#3b82f6",
+          success: "#10b981",
+          muted: "#64748b",
+          warning: "#f59e0b",
         },
         // Backwards-compatible aliases
-        ink: "#0a0f1a",
-        signal: "#52ffa8",
-        pulse: "#00f3ff",
-        warning: "#ff8f6b",
+        ink: "#030712",
+        signal: "#10b981", // Emerald
+        pulse: "#3b82f6",  // Blue
+        warning: "#f59e0b",
         cyan: {
-          electric: "#00f3ff",
+          electric: "#0ea5e9", // Sky
         },
       },
       fontFamily: {
-        display: ["ui-serif", "Georgia", "serif"],
+        display: ["ui-sans-serif", "system-ui", "sans-serif"],
         body: ["ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       boxShadow: {
-        panel: "0 20px 50px rgba(4, 9, 18, 0.35)",
-        glow: "0 0 20px rgba(0, 229, 255, 0.15)",
-        "glow-signal": "0 0 24px rgba(82, 255, 168, 0.12)",
+        panel: "0 10px 40px -10px rgba(0, 0, 0, 0.5)",
+        glow: "0 0 15px rgba(59, 130, 246, 0.1)",
+        "glow-signal": "0 0 15px rgba(16, 185, 129, 0.1)",
       },
       keyframes: {
         flash: {
-          "0%": { backgroundColor: "rgba(82, 255, 168, 0.08)" },
+          "0%": { backgroundColor: "rgba(16, 185, 129, 0.1)" },
           "100%": { backgroundColor: "transparent" },
         },
         shake: {
           "0%, 100%": { transform: "translateX(0)" },
-          "15%": { transform: "translateX(-3px)" },
-          "30%": { transform: "translateX(3px)" },
-          "45%": { transform: "translateX(-2px)" },
-          "60%": { transform: "translateX(2px)" },
-          "75%": { transform: "translateX(-1px)" },
-          "90%": { transform: "translateX(1px)" },
+          "15%": { transform: "translateX(-2px)" },
+          "30%": { transform: "translateX(2px)" },
+          "45%": { transform: "translateX(-1px)" },
+          "60%": { transform: "translateX(1px)" },
         },
         "fade-in": {
           "0%": { opacity: "0", transform: "scale(0.98) translateY(4px)" },

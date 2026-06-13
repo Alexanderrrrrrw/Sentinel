@@ -8,12 +8,12 @@ import type {
   LogQueryResponse,
 } from "@/lib/api";
 import { SetupWizard } from "@/components/setup-wizard";
+import { useLiveStream } from "./live-stream-context";
 
 interface Props {
   apiOnline: boolean;
   stats: QueryStats | null;
   gravityStatus: GravityStatus | null;
-  latestResolution: ResolveResponse | null;
   recentLogs: LogQueryResponse | null;
 }
 
@@ -21,15 +21,17 @@ export function DashboardClient({
   apiOnline,
   stats,
   gravityStatus,
-  latestResolution,
   recentLogs,
 }: Props) {
-  const totalQueries = stats?.total_queries ?? 0;
-  const blockedQueries = stats?.blocked_queries ?? 0;
+  const { liveStats, entries, connected } = useLiveStream();
+  const currentStats = liveStats || stats;
+  const currentLogs = entries.length > 0 ? entries : (recentLogs?.logs || []);
+
+  const totalQueries = currentStats?.total_queries ?? 0;
+  const blockedQueries = currentStats?.blocked_queries ?? 0;
   const blockRate =
     totalQueries > 0 ? Math.round((blockedQueries / totalQueries) * 100) : 0;
-  const uniqueClients = stats?.top_clients?.length ?? 0;
-  const latency = latestResolution?.response_time_ms ?? null;
+  const uniqueClients = currentStats?.top_clients?.length ?? 0;
   const bootstrapAgeLabel = formatAge(gravityStatus?.bootstrap_index_age_secs);
   const lastSyncLabel = formatLastSync(gravityStatus?.last_gravity_sync);
 
@@ -132,21 +134,7 @@ export function DashboardClient({
           </p>
         </GlassCard>
 
-        {/* Latency */}
-        <GlassCard>
-          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-400">
-            Latency
-          </p>
-          <p className="mt-2 text-3xl font-bold tabular-nums text-cyan-electric">
-            {latency !== null ? `${latency}` : "—"}
-            {latency !== null && (
-              <span className="ml-0.5 text-sm font-normal text-cyan-electric/50">
-                ms
-              </span>
-            )}
-          </p>
-          <p className="mt-1 text-[10px] text-slate-500">Sample query</p>
-        </GlassCard>
+
 
         {/* Gravity freshness */}
         <GlassCard>
@@ -167,15 +155,15 @@ export function DashboardClient({
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-300">
               Top Domains
             </h2>
-            {stats?.top_domains && stats.top_domains.length > 0 ? (
+            {currentStats?.top_domains && currentStats.top_domains.length > 0 ? (
               <div className="space-y-1.5">
-                {stats.top_domains.slice(0, 8).map(([domain, count], i) => (
+                {currentStats.top_domains.slice(0, 8).map(([domain, count], i) => (
                   <DomainRow
                     key={domain}
                     rank={i + 1}
                     domain={domain}
                     count={count}
-                    max={stats.top_domains[0][1]}
+                    max={currentStats.top_domains[0][1]}
                   />
                 ))}
               </div>
@@ -193,15 +181,15 @@ export function DashboardClient({
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-red-300/80">
               Top Blocked
             </h2>
-            {stats?.top_blocked && stats.top_blocked.length > 0 ? (
+            {currentStats?.top_blocked && currentStats.top_blocked.length > 0 ? (
               <div className="space-y-1.5">
-                {stats.top_blocked.slice(0, 8).map(([domain, count], i) => (
+                {currentStats.top_blocked.slice(0, 8).map(([domain, count], i) => (
                   <DomainRow
                     key={domain}
                     rank={i + 1}
                     domain={domain}
                     count={count}
-                    max={stats.top_blocked[0][1]}
+                    max={currentStats.top_blocked[0][1]}
                     variant="blocked"
                   />
                 ))}
@@ -220,9 +208,9 @@ export function DashboardClient({
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-300">
               Top Clients
             </h2>
-            {stats?.top_clients && stats.top_clients.length > 0 ? (
+            {currentStats?.top_clients && currentStats.top_clients.length > 0 ? (
               <div className="space-y-1.5">
-                {stats.top_clients.slice(0, 8).map(([client, count]) => (
+                {currentStats.top_clients.slice(0, 8).map(([client, count]) => (
                   <div
                     key={client}
                     className="flex items-center justify-between rounded-lg bg-white/[0.02] px-3 py-1.5"
@@ -244,36 +232,7 @@ export function DashboardClient({
           </GlassCard>
         </div>
 
-        {/* CNAME Inspector */}
-        <div className="col-span-full lg:col-span-2">
-          <GlassCard className="h-full">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-pulse/80">
-              CNAME Chain Inspector
-            </h2>
-            {latestResolution &&
-            latestResolution.cname_chain.length > 0 ? (
-              <div className="space-y-1">
-                {latestResolution.cname_chain.map((hop, i) => (
-                  <div
-                    key={`${hop}-${i}`}
-                    className="flex items-center gap-2"
-                  >
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pulse/10 font-mono text-[9px] text-pulse/70">
-                      {i + 1}
-                    </span>
-                    <span className="truncate font-mono text-xs text-slate-300">
-                      {hop}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="py-4 text-center text-xs text-slate-500">
-                No resolution data yet
-              </p>
-            )}
-          </GlassCard>
-        </div>
+
 
         {/* Recent Queries — full width */}
         <div className="col-span-full">
@@ -281,7 +240,7 @@ export function DashboardClient({
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-300">
               Recent Queries
             </h2>
-            {recentLogs && recentLogs.logs.length > 0 ? (
+            {currentLogs && currentLogs.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
@@ -294,7 +253,7 @@ export function DashboardClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {recentLogs.logs.map((log, i) => (
+                    {currentLogs.map((log, i) => (
                       <tr
                         key={`${log.timestamp}-${i}`}
                         className="border-b border-white/[0.03]"
@@ -411,12 +370,19 @@ function DomainRow({
 }
 
 function ActionBadge({ action }: { action: string }) {
-  const color =
-    action === "blocked"
-      ? "bg-red-500/10 text-red-400"
-      : action === "cached"
-        ? "bg-blue-500/10 text-blue-400"
-        : "bg-signal/10 text-signal";
+  const isHeuristic = action.toLowerCase().includes("heuristic");
+  const isBlocked = action.toLowerCase().includes("block");
+  const isCached = action.toLowerCase().includes("cache");
+
+  let color = "bg-emerald-500/10 text-emerald-400";
+  if (isHeuristic) {
+    color = "bg-amber-500/15 text-amber-400 border border-amber-500/30";
+  } else if (isBlocked) {
+    color = "bg-red-500/10 text-red-400";
+  } else if (isCached) {
+    color = "bg-blue-500/10 text-blue-400";
+  }
+
   return (
     <span
       className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${color}`}

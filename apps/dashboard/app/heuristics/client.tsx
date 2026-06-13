@@ -183,7 +183,7 @@ export function HeuristicsClient({ initialStatus }: Props) {
           How It Works
         </h2>
         <p className="mb-3 text-xs text-slate-400">
-          Pi-hole relies exclusively on static blocklists — if a domain
+          Traditional DNS sinkholes rely exclusively on static blocklists — if a domain
           isn&apos;t on a list, it passes. Sentinel goes further with 9
           structural heuristics that run on every uncategorized domain:
         </p>
